@@ -1,31 +1,37 @@
-# Linux Kernel Security Patches — CVEs 2026
+# Linux Kernel Security — CVE Patch Analysis & Hardening
 
-## Overview
+My workspace for analyzing public Linux kernel vulnerabilities (2025–2026),
+verifying and organizing their patches, and building a hardened custom
+kernel for Debian-based distributions (ParrotOS, Kali, Ubuntu).
 
-Security patches, hardening configurations, and pre-built custom kernel for Linux. Focused on critical vulnerabilities discovered in 2025-2026. Compatible with Debian-based distributions (ParrotOS, Kali, Ubuntu).
+Patches and vulnerability details are based on public sources: upstream
+kernel commits, NVD entries, and the original researchers' disclosures
+(see References). My own work here is the analysis, verification,
+hardening configuration, and tooling — see
+[ANALYSIS.md](ANALYSIS.md) for my per-CVE root-cause notes.
 
 ---
 
-## 🛡️ Custom Hardened Kernel 6.19.13
+## 🔍 CVE Root-Cause Analysis
 
-Pre-built, hardened Linux kernel with 27+ security mitigations enabled, Dirty Frag LPE patched, and 20+ CVE mitigations applied.
+[ANALYSIS.md](ANALYSIS.md) — my working notes for each CVE: affected
+component, root cause, fix pattern, exploitability, and defensive
+takeaways. Covered so far:
 
-### Download (Pre-built .deb)
+| CVE | CVSS | Type | Bug class |
+|-----|------|------|-----------|
+| CVE-2026-31589 | 9.8 | UAF in `folio_unmap_invalidate` | Use after lock release |
+| CVE-2026-31649 | 9.8 | stmmac integer underflow | Unsigned wrap → DMA overmap |
+| CVE-2026-31431 | 7.8 | algif_aead "Copy Fail" LPE | In-place op complexity (fix: revert) |
+| CVE-2026-31533 | 7.8 | TLS UAF | Sync/async double cleanup |
+| CVE-2026-31408 | 5.5 | Bluetooth SCO UAF | Missing refcount after unlock |
 
-| Package | Size | Download |
-|---------|------|----------|
-| **linux-image** | 292 MB | [Releases](https://github.com/MethodWhite/kernel-security-patches/releases) |
-| **linux-headers** | 11 MB | [Releases](https://github.com/MethodWhite/kernel-security-patches/releases) |
-| **linux-image-dbg** | 1.3 GB | [Releases](https://github.com/MethodWhite/kernel-security-patches/releases) |
+---
 
-### Install
+## 🛡️ Hardened Kernel Build (6.19.13)
 
-```bash
-sudo dpkg -i linux-image-6.19.13-parrot.custom+2.0-cachyos-g372c9ba96bd4-dirty_6.19.13-g372c9ba96bd4-8_amd64.deb \
-            linux-headers-6.19.13-parrot.custom+2.0-cachyos-g372c9ba96bd4-dirty_6.19.13-g372c9ba96bd4-8_amd64.deb
-sudo update-grub
-sudo reboot
-```
+Hardened Linux kernel configuration with 27+ security mitigations enabled,
+Dirty Frag LPE mitigated, and the CVE patch series above applied.
 
 ### Hardening Applied
 
@@ -39,25 +45,38 @@ sudo reboot
 | **Access Control** | `SECURITY_DMESG_RESTRICT`, `STRICT_DEVMEM`, `IO_STRICT_DEVMEM` |
 | **Attack Surface** | `NET_SCH_QFQ` disabled (CVE-2026-22976), `INET_DIAG_DESTROY` disabled |
 
-### CVEs Patched / Mitigated
+### Additional CVEs Mitigated via Config
 
 | CVE | CVSS | Type | Mitigation |
 |-----|------|------|------------|
-| **Dirty Frag** (no CVE) | ~9.0 | LPE via xfrm-ESP + RxRPC page-cache write | Module blacklist + kernel patch (SKBFL_SHARED_FRAG) |
+| **Dirty Frag** (no CVE) | ~9.0 | LPE via xfrm-ESP + RxRPC page-cache write | Module blacklist + SKBFL_SHARED_FRAG patch |
 | CVE-2026-22976 | 5.5 | NULL deref in sch_qfq | Module disabled (`NET_SCH_QFQ=n`) |
-| CVE-2025-37916 | 7.8 | UAF in pds_core | Module build (depends on hardware) |
+| CVE-2025-37916 | 7.8 | UAF in pds_core | Module not built |
 | CVE-2025-38179 | 7.8 | OOB in cifs | `CIFS_SMB_DIRECT` not set |
-| CVE-2026-23171 | 7.8 | UAF in bonding | Module build |
-| CVE-2026-23198 | 7.8 | UAF in KVM | Module build |
-| CVE-2026-23336 | 7.8 | UAF in cfg80211 | Module build |
-| CVE-2026-31494 | 7.8 | OOB in macb | Module build |
-| CVE-2026-31431 | 7.8 | Copy Fail LPE | ✅ Patched |
-| CVE-2026-31589 | 9.8 | UAF in folio_unmap | ✅ Patched |
-| CVE-2026-31649 | 9.8 | Integer underflow stmmac | ✅ Patched |
-| CVE-2026-31533 | 7.8 | UAF in TLS | ✅ Patched |
-| CVE-2026-31408 | 5.5 | UAF in Bluetooth SCO | ✅ Patched |
+| CVE-2026-23171 | 7.8 | UAF in bonding | Module not built |
+| CVE-2026-23198 | 7.8 | UAF in KVM | Module not built |
+| CVE-2026-23336 | 7.8 | UAF in cfg80211 | Module not built |
+| CVE-2026-31494 | 7.8 | OOB in macb | Module not built |
 
 Full CVE tracking: [kernel-6.19-custom/CVE-TRACKING.md](kernel-6.19-custom/CVE-TRACKING.md)
+
+### Hardening Comparison
+
+How this config compares against major distro kernels:
+
+| Hardening Option | This Kernel 6.19 | Solus LTS 6.18 | Debian 6.12 |
+|---|---|---|---|
+| **CPU Mitigations (24)** | ✅ All | ✅ All | ✅ All |
+| **Struct Randomization** | ✅ PERFORMANCE | ❌ NONE | ❌ NONE |
+| **Module Signing (Force)** | ✅ SHA-512 | ❌ | ❌ |
+| **Kernel Lockdown** | ✅ INTEGRITY | ❌ | ❌ |
+| **INIT_ON_FREE** | ✅ Zero on kfree | ❌ | ❌ |
+| **ZERO_CALL_USED_REGS** | ✅ | ❌ | ❌ |
+| **DMESG_RESTRICT** | ✅ | ❌ | ❌ |
+| **IO_STRICT_DEVMEM** | ✅ | ❌ | ❌ |
+| **Dirty Frag LPE** | ✅ Mitigated | ❌ Vulnerable | ❌ Vulnerable |
+
+> Solus comparison based on [PR #8790](https://github.com/getsolus/packages/pull/8790) (linux-lts 6.18.28).
 
 ### Build from Source
 
@@ -67,7 +86,7 @@ wget https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.19.tar.xz
 tar xf linux-6.19.tar.xz
 cd linux-6.19
 
-# Apply our hardened config
+# Apply the hardened config
 cp configs/defconfig .config
 make olddefconfig
 
@@ -81,24 +100,6 @@ sudo make install
 sudo update-grub
 ```
 
-### Hardening Comparison
-
-How our custom kernel compares against major distro kernels:
-
-| Hardening Option | Our Kernel 6.19 | Solus LTS 6.18 | Debian 6.12 |
-|---|---|---|---|
-| **CPU Mitigations (24)** | ✅ All | ✅ All | ✅ All |
-| **Struct Randomization** | ✅ PERFORMANCE | ❌ NONE | ❌ NONE |
-| **Module Signing (Force)** | ✅ SHA-512 | ❌ | ❌ |
-| **Kernel Lockdown** | ✅ INTEGRITY | ❌ | ❌ |
-| **INIT_ON_FREE** | ✅ Zero on kfree | ❌ | ❌ |
-| **ZERO_CALL_USED_REGS** | ✅ | ❌ | ❌ |
-| **DMESG_RESTRICT** | ✅ | ❌ | ❌ |
-| **IO_STRICT_DEVMEM** | ✅ | ❌ | ❌ |
-| **Dirty Frag LPE** | ✅ Patched | ❌ Vulnerable | ❌ Vulnerable |
-
-> Solus comparison based on [PR #8790](https://github.com/getsolus/packages/pull/8790) (linux-lts 6.18.28).
-
 ### Kernel Config
 
 - [configs/defconfig](configs/defconfig) — boot config (minimal, what ships in /boot)
@@ -109,22 +110,20 @@ How our custom kernel compares against major distro kernels:
 
 ## 🔧 CVE Patches
 
-### Patch Files
-
 | File | CVE | Severity | Description |
 |------|-----|----------|-------------|
-| `CVE-2026-31431-copy-fail.patch` | CVE-2026-31431 | HIGH (7.8) | Copy Fail - Local Privilege Escalation via page cache |
-| `CVE-2026-31589-folio-unmap-uaf.patch` | CVE-2026-31589 | CRITICAL (9.8) | Use-after-free in folio_unmap_invalidate |
+| `CVE-2026-31431-copy-fail.patch` | CVE-2026-31431 | HIGH (7.8) | Copy Fail — LPE via page cache |
+| `CVE-2026-31589-folio-unmap-uaf.patch` | CVE-2026-31589 | CRITICAL (9.8) | UAF in folio_unmap_invalidate |
 | `CVE-2026-31649-stmmac-integer-underflow.patch` | CVE-2026-31649 | CRITICAL (9.8) | Integer underflow in stmmac Ethernet driver |
-| `CVE-2026-31533-tls-uaf.patch` | CVE-2026-31533 | HIGH (7.8) | Use-after-free in TLS subsystem |
-| `CVE-2026-31408-bluetooth-sco-uaf.patch` | CVE-2026-31408 | MEDIUM (5.5) | Use-after-free in Bluetooth SCO |
+| `CVE-2026-31533-tls-uaf.patch` | CVE-2026-31533 | HIGH (7.8) | UAF in TLS subsystem |
+| `CVE-2026-31408-bluetooth-sco-uaf.patch` | CVE-2026-31408 | MEDIUM (5.5) | UAF in Bluetooth SCO |
 | `nvidia-compat-mutex_destroy.patch` | N/A (compat) | — | Export `mutex_destroy` as non-GPL for NVIDIA DKMS |
 
 ### Apply Patches
 
 ```bash
-git clone https://github.com/MethodWhite/kernel-security-patches.git
-cd kernel-security-patches
+git clone https://github.com/BurnSkyup/kernel-security.git
+cd kernel-security
 
 # Download kernel source
 apt-get source linux-image-$(uname -r)
@@ -173,6 +172,7 @@ sysctl kernel.dmesg_restrict             # = 1
 ## Files Structure
 
 ```
+├── ANALYSIS.md                # My per-CVE root-cause analysis notes
 ├── configs/
 │   ├── defconfig              # Kernel boot config (hardened)
 │   ├── defconfig-full         # Full kernel config
@@ -210,7 +210,9 @@ MIT License — Free to use, modify, and distribute.
 
 ## Disclaimer
 
-Patches provided as-is. Always backup before applying kernel updates. Test in a VM/sandbox before deploying to production.
+Patches provided as-is for research and defensive hardening purposes.
+Always backup before applying kernel updates. Test in a VM/sandbox before
+deploying to production.
 
 ---
-**Last Updated**: 2026-05-12 — **Kernel**: 6.19.13.parrot.custom+2.0-cachyos (hardened) · 6.12.x (patch series)
+**Last Updated**: 2026-08-08 — **Kernel**: 6.19.13 hardened custom build · 6.12.x patch series
