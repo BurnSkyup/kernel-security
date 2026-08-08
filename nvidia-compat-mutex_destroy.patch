@@ -1,0 +1,30 @@
+From: MethodWhite <methodwhite@proton.me>
+Date: Mon, 11 May 2026 23:31:05 -0400
+Subject: [PATCH] nvidia compat: export mutex_destroy as EXPORT_SYMBOL (non-GPL)
+
+NVIDIA proprietary driver (550.x) uses mutex_destroy but the kernel
+exports it as EXPORT_SYMBOL_GPL. This breaks DKMS builds with:
+
+  ERROR: modpost: GPL-incompatible module nvidia.ko uses GPL-only symbol 'mutex_destroy'
+
+Fix: change export to EXPORT_SYMBOL (non-GPL restriction).
+
+Affects: kernel/locking/mutex-debug.c (when CONFIG_DEBUG_MUTEXES=y)
+
+Signed-off-by: MethodWhite <methodwhite@proton.me>
+---
+ kernel/locking/mutex-debug.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/kernel/locking/mutex-debug.c b/kernel/locking/mutex-debug.c
+index 571e443c8..e39a5b6b9 100644
+--- a/kernel/locking/mutex-debug.c
++++ b/kernel/locking/mutex-debug.c
+@@ -108,4 +108,4 @@ void mutex_destroy(struct mutex *lock)
+ 	lock->magic = NULL;
+ }
+ 
+-EXPORT_SYMBOL_GPL(mutex_destroy);
++EXPORT_SYMBOL(mutex_destroy);
+-- 
+2.44.0
