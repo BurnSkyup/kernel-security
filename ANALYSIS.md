@@ -61,6 +61,8 @@ one descriptor, `len == 0` and the loop is skipped — the fragment path in
 
 ## CVE-2026-31533 — UAF in TLS decryption error path (net/tls/tls_sw.c) — CVSS 7.8
 
+> 📄 Deep dive: [analysis/CVE-2026-31533-tls-uaf.md](analysis/CVE-2026-31533-tls-uaf.md)
+
 **Root cause.** When `tls_do_encrypt()` returns `-EBUSY`, the crypto request
 is queued to the cryptd backlog and the async callback `tls_encrypt_done()`
 fires on completion. The old code *also* performed synchronous cleanup of
