@@ -9,6 +9,8 @@ researcher disclosures (see README references).
 
 ## CVE-2026-31589 — UAF in `folio_unmap_invalidate()` (mm/filemap.c) — CVSS 9.8
 
+> 📄 Deep dive: [analysis/CVE-2026-31589-folio-uaf.md](analysis/CVE-2026-31589-folio-uaf.md)
+
 **Root cause.** `folio_unmap_invalidate()` called `filemap_free_folio()`
 after the folio had already been removed from the mapping. At that point the
 folio no longer pins the `address_space`, so the mapping can be freed
@@ -30,6 +32,8 @@ drop the lock and invoke the saved pointer. This also lets
 ---
 
 ## CVE-2026-31649 — Integer underflow in stmmac chain mode (drivers/net/ethernet/stmicro/stmmac) — CVSS 9.8
+
+> 📄 Deep dive: [analysis/CVE-2026-31649-stmmac-underflow.md](analysis/CVE-2026-31649-stmmac-underflow.md)
 
 **Root cause.** In `jumbo_frm()`, when a packet has a small linear portion
 (`nopaged_len <= bmax`) but a large total length from page fragments
